@@ -32,6 +32,7 @@ struct _ParasiteWidgetTreePrivate
 {
     GtkTreeStore *model;
     gboolean edit_mode_enabled;
+    gboolean include_internal;
 };
 
 #define PARASITE_WIDGET_TREE_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), PARASITE_TYPE_WIDGET_TREE, ParasiteWidgetTreePrivate))
@@ -146,6 +147,7 @@ parasite_widget_tree_init(ParasiteWidgetTree *widget_tree,
         G_TYPE_STRING); // ROW_COLOR
 
     widget_tree->priv->edit_mode_enabled = FALSE;
+    widget_tree->priv->include_internal = FALSE;
 
     gtk_tree_view_set_model(GTK_TREE_VIEW(widget_tree),
                             GTK_TREE_MODEL(widget_tree->priv->model));
@@ -328,11 +330,15 @@ parasite_widget_tree_get_selected_widget(ParasiteWidgetTree *widget_tree)
     return NULL;
 }
 
+typedef struct {
+    GtkTreeStore *model;
+    GtkTreeIter *parent_iter;
+    gboolean include_internal;
+} AppendWidgetData;
 
 static void
-append_widget(GtkTreeStore *model,
-              GtkWidget *widget,
-              GtkTreeIter *parent_iter)
+append_widget(GtkWidget *widget,
+              AppendWidgetData *data)
 {
     GtkTreeIter iter;
     const char *class_name = G_OBJECT_CLASS_NAME(GTK_WIDGET_GET_CLASS(widget));
@@ -343,7 +349,6 @@ append_widget(GtkTreeStore *model,
     gboolean realized;
     gboolean mapped;
     gboolean visible;
-    GList *l;
 
     name = gtk_widget_get_name(widget);
     if (name == NULL || strcmp(name, class_name) == 0) {
@@ -383,8 +388,8 @@ append_widget(GtkTreeStore *model,
 
     row_color = (realized && mapped && visible) ? "black" : "grey";
 
-    gtk_tree_store_append(model, &iter, parent_iter);
-    gtk_tree_store_set(model, &iter,
+    gtk_tree_store_append(data->model, &iter, data->parent_iter);
+    gtk_tree_store_set(data->model, &iter,
                        WIDGET, widget,
                        WIDGET_TYPE, class_name,
                        WIDGET_NAME, name,
@@ -401,11 +406,17 @@ append_widget(GtkTreeStore *model,
 
     if (GTK_IS_CONTAINER(widget))
     {
-        for (l = gtk_container_get_children(GTK_CONTAINER(widget));
-             l != NULL;
-             l = l->next)
-        {
-            append_widget(model, GTK_WIDGET(l->data), &iter);
+        AppendWidgetData child_data;
+        child_data.parent_iter = &iter;
+        child_data.include_internal = data->include_internal;
+        child_data.model = data->model;
+        
+        if (data->include_internal) {
+            gtk_container_forall (GTK_CONTAINER (widget),
+                                  (GtkCallback) append_widget, &child_data);
+        } else {
+            gtk_container_foreach (GTK_CONTAINER (widget),
+                                   (GtkCallback) append_widget, &child_data);
         }
     }
 }
@@ -415,8 +426,15 @@ void
 parasite_widget_tree_scan(ParasiteWidgetTree *widget_tree,
                           GtkWidget *window)
 {
+    AppendWidgetData child_data;
+
     gtk_tree_store_clear(widget_tree->priv->model);
-    append_widget(widget_tree->priv->model, window, NULL);
+
+    child_data.parent_iter = NULL;
+    child_data.include_internal = widget_tree->priv->include_internal;
+    child_data.model = widget_tree->priv->model;
+    append_widget(window, &child_data);
+
     gtk_tree_view_columns_autosize(GTK_TREE_VIEW(widget_tree));
 }
 
@@ -426,6 +444,13 @@ parasite_widget_tree_set_edit_mode(ParasiteWidgetTree *widget_tree,
                                    gboolean edit)
 {
     widget_tree->priv->edit_mode_enabled = edit;
+}
+
+void
+parasite_widget_tree_set_include_internal(ParasiteWidgetTree *widget_tree,
+                                          gboolean include_internal)
+{
+    widget_tree->priv->include_internal = include_internal;
 }
 
 

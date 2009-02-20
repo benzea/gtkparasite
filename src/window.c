@@ -162,6 +162,17 @@ on_show_graphic_updates_toggled(GtkWidget *toggle_button,
         gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(toggle_button)));
 }
 
+static void
+on_show_internal_widgets_toggled(GtkWidget *toggle_button,
+                                ParasiteWindow *parasite)
+{
+    gboolean active =
+        gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(toggle_button));
+
+    parasite_widget_tree_set_include_internal(
+        PARASITE_WIDGET_TREE (parasite->widget_tree), active);
+}
+
 static GtkWidget *
 create_widget_tree(ParasiteWindow *parasite)
 {
@@ -198,6 +209,13 @@ create_widget_tree(ParasiteWindow *parasite)
 
     g_signal_connect(G_OBJECT(button), "toggled",
                      G_CALLBACK(on_show_graphic_updates_toggled), parasite);
+
+    button = gtk_toggle_button_new_with_mnemonic("Show _Internal Widgets");
+    gtk_widget_show(button);
+    gtk_box_pack_start(GTK_BOX(bbox), button, FALSE, FALSE, 0);
+
+    g_signal_connect(G_OBJECT(button), "toggled",
+                     G_CALLBACK(on_show_internal_widgets_toggled), parasite);
 
     hpaned = gtk_hpaned_new();
     gtk_widget_show(hpaned);

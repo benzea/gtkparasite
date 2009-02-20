@@ -41,6 +41,8 @@ void parasite_widget_tree_select_widget(ParasiteWidgetTree *widget_tree,
                                         GtkWidget *widget);
 void parasite_widget_tree_set_edit_mode(ParasiteWidgetTree *widget_tree,
                                         gboolean edit);
+void parasite_widget_tree_set_include_internal(ParasiteWidgetTree *widget_tree,
+                                               gboolean include_internal);
 
 
 G_END_DECLS
